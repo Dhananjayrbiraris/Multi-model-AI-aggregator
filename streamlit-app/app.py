@@ -16,7 +16,7 @@ import streamlit as st
 # -------------------------------------------------
 WEBHOOK_URL = os.environ.get(
     "N8N_WEBHOOK_URL",
-    # "https://sp12012012.app.n8n.cloud/webhook-test/multi"  # fallback if env var not set
+     "https://sp12012012.app.n8n.cloud/webhook-test/multi"  # fallback if env var not set
 )
 
 AVAILABLE_MODELS = [
