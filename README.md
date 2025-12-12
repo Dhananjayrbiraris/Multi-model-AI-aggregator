@@ -1,7 +1,5 @@
 # Multi-model-AI-aggregator
 
-# AI Multi‑Model Aggregator
-
 A production‑grade **Streamlit UI + n8n Orchestration** system that allows users to:
 
 - Run **single model** AI inference
