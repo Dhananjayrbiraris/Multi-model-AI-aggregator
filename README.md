@@ -162,10 +162,6 @@ Feel free to fork and enhance this multi‑model inference orchestrator.
 
 ---
 
-## 🏁 License
-MIT License
-
----
 
 ## 💬 Need help?
 Just ask — happy to help you extend this architecture further!
