@@ -5,15 +5,17 @@
         "httpMethod": "POST",
         "path": "multi",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "binaryPropertyName": "data"
+        }
       },
-      "id": "97ec16ee-0669-4d49-95c5-af52b6772a11",
+      "id": "dbe725cc-da66-4424-bda3-3ceb1604904f",
       "name": "Webhook Multi Endpoint",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -1888,
-        256
+        -2464,
+        -112
       ],
       "webhookId": "4cfa60a8-cd01-4910-a00d-fddd77702d73"
     },
@@ -38,13 +40,13 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "22de3920-fe30-42b9-a4a6-54512934f663",
+      "id": "3abc467d-0dae-421c-80c5-199705578ce7",
       "name": "Config Multi Mode",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -1664,
-        256
+        -2240,
+        -112
       ]
     },
     {
@@ -54,46 +56,60 @@
             {
               "id": "id-1",
               "name": "prompt",
-              "value": "={{ $json.body.prompt }}",
+              "value": "={{ $json.headers.prompt || $json.body.prompt}}",
               "type": "string"
             },
             {
               "id": "id-2",
               "name": "models",
-              "value": "={{ $json.body.models }}",
-              "type": "array"
+              "value": "={{ $json.headers.models || $json.body.models }}",
+              "type": "string"
             },
             {
               "id": "id-3",
               "name": "inputType",
-              "value": "={{ $json.body.inputType }}",
+              "value": "={{ $json.headers.input-type || $json.body.inputType || $json.headers[\"input-type\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "4f21c87b-2d98-41e2-9226-93c4411ca6b0",
+              "name": "headers[\"input-type\"]",
+              "value": "={{ $json.headers[\"input-type\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "1a4254db-f74f-468b-aa02-84ba30af587d",
+              "name": "",
+              "value": "",
               "type": "string"
             }
           ]
         },
         "includeOtherFields": true,
-        "options": {}
+        "options": {
+          "stripBinary": true
+        }
       },
-      "id": "ad7d0b2d-9734-45fc-938f-7d17df5ef7b4",
+      "id": "45070bb4-1dcc-4dd7-a408-3309474d7061",
       "name": "Extract Multi Request",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -1440,
-        256
+        -2016,
+        -112
       ]
     },
     {
       "parameters": {
-        "jsCode": "const models = $input.first().json.models;\nconst prompt = $input.first().json.prompt;\nconst inputType = $input.first().json.inputType;\n\nreturn models.map(model => ({\n  json: {\n    model,\n    prompt,\n    inputType\n  }\n}));"
+        "jsCode": "// ---------------\n// NORMALIZE INPUT\n// ---------------\n\nconst headers = $json.headers || {};\nconst body = $json.body || {};\nconst query = $json.query || {};\nconst params = $json.params || {};\n\nlet inputType = headers[\"input-type\"] || body.inputType || null;\nlet models = null;\nlet prompt = null;\nlet filename = null;\nlet mimeType = null;\nlet binaryData = null;\n\n// ------------------------\n// TEXT INPUT (JSON)\n// ------------------------\nif (inputType === \"text\") {\n  models = body.models || JSON.parse(headers[\"models\"] || \"[]\");\n  prompt = body.prompt || headers[\"prompt\"] || \"\";\n}\n\n// ------------------------\n// AUDIO INPUT (RAW BINARY)\n// ------------------------\nelse if (inputType === \"audio\") {\n  models = JSON.parse(headers[\"models\"] || \"[]\");\n  prompt = headers[\"prompt\"] || \"\";\n  filename = headers[\"filename\"] || \"audio.bin\";\n  mimeType = headers[\"content-type\"] || \"application/octet-stream\";\n\n  // n8n loads binary as $binary\n  if ($binary && Object.keys($binary).length) {\n    const key = Object.keys($binary)[0];\n    binaryData = $binary[key];\n  }\n}\n\n// ------------------------\n// IMAGE INPUT (multipart/form-data)\n// ------------------------\nelse if (inputType === \"image\") {\n\n  models = JSON.parse(body.models || \"[]\");\n  prompt = body.prompt || \"\";\n\n  const binKeys = Object.keys($binary || {});\n  if (binKeys.length > 0) {\n    const key = binKeys[0];\n    binaryData = $binary[key];\n    filename = $binary[key].fileName;\n    mimeType = $binary[key].mimeType;\n  }\n}\n\n// ------------------------\n// FINAL UNIFIED FORMAT\n// ------------------------\nreturn [\n  {\n    json: {\n      inputType,\n      models,\n      prompt,\n      filename,\n      mimeType\n    },\n    binary: binaryData ? { file: binaryData } : undefined\n  }\n];\n"
       },
-      "id": "cbd89d9a-a3c2-49fa-b0c5-0a2577bf785b",
+      "id": "c53a0114-85c3-4b03-a263-0dfabfd113dd",
       "name": "Split Models Array",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1216,
-        256
+        -1792,
+        -112
       ]
     },
     {
@@ -105,100 +121,103 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict"
+                  "typeValidation": "loose",
+                  "version": 2
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.model }}",
+                    "leftValue": "={{ $json.models }}",
                     "rightValue": "gpt4o",
                     "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
+                      "type": "array",
+                      "operation": "contains",
+                      "rightType": "any"
+                    },
+                    "id": "1f79d8e0-2cab-46df-98fa-51c8bc256422"
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "gpt4o"
+              }
             },
             {
               "conditions": {
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict"
+                  "typeValidation": "loose",
+                  "version": 2
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.model }}",
+                    "leftValue": "={{ $json.models }}",
                     "rightValue": "gpt4o-mini",
                     "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
+                      "type": "array",
+                      "operation": "contains",
+                      "rightType": "any"
+                    },
+                    "id": "18fd0207-014a-4878-b3d3-f7aee48a9b70"
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "gpt4o-mini"
+              }
             },
             {
               "conditions": {
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict"
+                  "typeValidation": "loose",
+                  "version": 2
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.model }}",
+                    "leftValue": "={{ $json.models }}",
                     "rightValue": "whisper",
                     "operator": {
                       "type": "string",
-                      "operation": "equals"
-                    }
+                      "operation": "contains"
+                    },
+                    "id": "a31607ea-6cbe-4694-bd17-72204742ed16"
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "whisper"
+              }
             },
             {
               "conditions": {
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict"
+                  "typeValidation": "loose",
+                  "version": 2
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.model }}",
+                    "id": "49c40bf2-53c1-43a7-b6f9-dfe68151dc6b",
+                    "leftValue": "={{ $json.models }}",
                     "rightValue": "gpt4o-vision",
                     "operator": {
                       "type": "string",
-                      "operation": "equals"
+                      "operation": "contains"
                     }
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "gpt4o-vision"
+              }
             }
           ]
         },
+        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "b4d68f41-63ed-4492-b39f-ec0cff2a3358",
+      "id": "8d751e2d-115f-495b-a468-070d6a024079",
       "name": "Route Multi Models",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.3,
       "position": [
-        -992,
-        224
+        -1568,
+        -144
       ]
     },
     {
@@ -218,18 +237,18 @@
         "builtInTools": {},
         "options": {}
       },
-      "id": "04be31fe-61ff-41e3-afc2-4afe67b9e39c",
+      "id": "f74e27a8-a833-4ec3-9534-f869de6339ea",
       "name": "Call GPT4o Multi",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2,
       "position": [
-        -768,
-        -32
+        -1136,
+        -400
       ],
       "credentials": {
         "openAiApi": {
-          "id": "5pNNK9XZPWlMCClf",
-          "name": "OpenAi account 2"
+          "id": "i42Z4hJpKZPWaLu1",
+          "name": "OpenAi account"
         }
       }
     },
@@ -250,18 +269,18 @@
         "builtInTools": {},
         "options": {}
       },
-      "id": "481c4d05-76c0-4f6f-a48a-70495d3d8d29",
+      "id": "e6b9a8e4-dc9b-484c-a7b6-1bc64162f44e",
       "name": "Call GPT4o-mini Multi",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2,
       "position": [
-        -768,
-        160
+        -1136,
+        -208
       ],
       "credentials": {
         "openAiApi": {
-          "id": "5pNNK9XZPWlMCClf",
-          "name": "OpenAi account 2"
+          "id": "i42Z4hJpKZPWaLu1",
+          "name": "OpenAi account"
         }
       }
     },
@@ -269,50 +288,21 @@
       "parameters": {
         "resource": "audio",
         "operation": "transcribe",
-        "binaryPropertyName": "prompt",
+        "binaryPropertyName": "={{ $('Webhook Multi Endpoint').item.binary.data }}",
         "options": {}
       },
-      "id": "5381ba2d-3f8b-44e5-86bf-bf0315a3ad30",
+      "id": "7d53f3b0-39c7-4c48-a1a8-06e56ee8f8d1",
       "name": "Call Whisper Multi",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2,
       "position": [
-        -704,
-        352
+        -1072,
+        -16
       ],
       "credentials": {
         "openAiApi": {
-          "id": "5pNNK9XZPWlMCClf",
-          "name": "OpenAi account 2"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "resource": "image",
-        "operation": "analyze",
-        "modelId": {
-          "__rl": true,
-          "value": "gpt-4o-mini",
-          "mode": "list",
-          "cachedResultName": "GPT-4O-MINI"
-        },
-        "text": "Describe this image in detail",
-        "imageUrls": "={{ $json.prompt }}",
-        "options": {}
-      },
-      "id": "0cda5202-54d3-45e4-af80-9deb57f90d4e",
-      "name": "Call GPT4o-vision Multi",
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 2,
-      "position": [
-        -704,
-        544
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "5pNNK9XZPWlMCClf",
-          "name": "OpenAi account 2"
+          "id": "i42Z4hJpKZPWaLu1",
+          "name": "OpenAi account"
         }
       }
     },
@@ -342,13 +332,13 @@
         },
         "options": {}
       },
-      "id": "00e75027-6fb6-4349-bd00-ee080bdea6ef",
+      "id": "bd279fa7-2b4d-4c39-81d0-bf04de0c85f9",
       "name": "Format GPT4o Response Multi",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -416,
-        -32
+        -784,
+        -400
       ]
     },
     {
@@ -377,13 +367,13 @@
         },
         "options": {}
       },
-      "id": "b5e9bfd5-9dd2-4dbf-9825-523496c77160",
+      "id": "3d4e021a-751b-4f4e-9ad6-9d56483466ab",
       "name": "Format GPT4o-mini Response Multi",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -416,
-        160
+        -784,
+        -208
       ]
     },
     {
@@ -412,14 +402,70 @@
         },
         "options": {}
       },
-      "id": "872c487d-b9ff-44de-b8ed-475d5e161ef4",
+      "id": "a03e5bfc-3315-4077-9aee-c88e6d3dbca9",
       "name": "Format Whisper Response Multi",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -416,
-        352
+        -784,
+        -16
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const responses = $input.all().map(item => item.json);\nreturn [{ json: { responses } }];"
+      },
+      "id": "98db3d8e-37dc-494a-a93e-787279ea4e7e",
+      "name": "Aggregate All Responses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "af7d4a09-565d-49c9-9a0f-0d57bbc61243",
+      "name": "Return Multi Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -288,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "text": "Describe this image in detail",
+        "inputType": "base64",
+        "binaryPropertyName": "={{ $('Webhook Multi Endpoint').item.binary.data0.id }}",
+        "options": {}
+      },
+      "id": "faabc4d4-885d-43c2-b954-7a63d50bd3bc",
+      "name": "Call GPT4o-vision Multi",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        160
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "i42Z4hJpKZPWaLu1",
+          "name": "OpenAi account"
+        }
+      }
     },
     {
       "parameters": {
@@ -447,39 +493,13 @@
         },
         "options": {}
       },
-      "id": "4f4270fa-4275-4437-8553-9779cc60d6ba",
+      "id": "b72a2094-3851-4284-9c67-b0ea13954365",
       "name": "Format GPT4o-vision Response Multi",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -416,
-        544
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const responses = $input.all().map(item => item.json);\nreturn [{ json: { responses } }];"
-      },
-      "id": "333ffe9a-9dd2-48ea-98f5-902eef4886d2",
-      "name": "Aggregate All Responses",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -192,
-        256
-      ]
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "id": "0fa1c4a9-2690-45c3-a646-eb98da0e33de",
-      "name": "Return Multi Response",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
-      "position": [
-        80,
-        256
+        -784,
+        160
       ]
     }
   ],
@@ -593,17 +613,6 @@
         ]
       ]
     },
-    "Call GPT4o-vision Multi": {
-      "main": [
-        [
-          {
-            "node": "Format GPT4o-vision Response Multi",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Format GPT4o Response Multi": {
       "main": [
         [
@@ -637,17 +646,6 @@
         ]
       ]
     },
-    "Format GPT4o-vision Response Multi": {
-      "main": [
-        [
-          {
-            "node": "Aggregate All Responses",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Aggregate All Responses": {
       "main": [
         [
@@ -658,11 +656,33 @@
           }
         ]
       ]
+    },
+    "Call GPT4o-vision Multi": {
+      "main": [
+        [
+          {
+            "node": "Format GPT4o-vision Response Multi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format GPT4o-vision Response Multi": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "5aac6e2555c46f52c5feb3073cfb00178a705208980c56f87454a885fef1edf3"
+    "instanceId": "4e843fbbb0f0a9fafb0ef6c81e4c4ce5bd6b84cc146bac40a16b645b4f8c5d74"
   }
 }
