@@ -69,15 +69,14 @@ st.sidebar.markdown("""
 """, unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
-selected_models = [
-    m["id"]
-    for m in AVAILABLE_MODELS
-    if st.sidebar.checkbox(f"{m['title']} — {m['desc']}", value=m["id"] == "gpt4o")
-]
+selected_model = st.sidebar.radio(
+    "Select Model",
+    AVAILABLE_MODELS,
+    format_func=lambda m: f"{m['title']} — {m['desc']}"
+)
 
-if not selected_models:
-    st.sidebar.warning("At least one model required — enabling GPT-4o.")
-    selected_models = ["gpt4o"]
+selected_models = [selected_model["id"]]
+
 
 input_type = st.sidebar.radio("Input Type", ["text", "image", "audio"])
 prompt_text = st.sidebar.text_area("Prompt (Optional)", height=120)
