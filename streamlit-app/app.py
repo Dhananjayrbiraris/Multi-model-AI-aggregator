@@ -84,25 +84,14 @@ prompt_text = st.sidebar.text_area("Prompt (Optional)", height=120)
 uploaded_file = None
 uploaded_bytes: Optional[bytes] = None
 
-# 📎 Pin-style attachment (shown only when needed)
 if input_type in ("image", "audio"):
-    st.markdown("📎 **Attach file**")
-    uploaded_file = st.file_uploader(
-        "",
-        type=["png", "jpg", "jpeg", "wav", "mp3", "m4a"],
-        label_visibility="collapsed"
-    )
-
+    uploaded_file = st.sidebar.file_uploader(f"Upload {input_type}")
     if uploaded_file:
         uploaded_file.seek(0)
         uploaded_bytes = uploaded_file.read()
-        st.caption(f"📎 Attached: {uploaded_file.name}")
 
-# Chat input (unchanged)
-user_message = st.chat_input("Type your message…")
-
-# Run trigger (Enter key OR button)
-run = bool(user_message)
+st.sidebar.markdown("---")
+run = st.sidebar.button("🚀 Run Models", use_container_width=True)
 
 
 
