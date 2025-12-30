@@ -16,7 +16,7 @@ import streamlit as st
 WEBHOOK_URL = os.environ.get(
     "N8N_WEBHOOK_URL",
     # "https://sp12012012.app.n8n.cloud/webhook/multi",
-    "https://sunny045.app.n8n.cloud/webhook/multi"
+    "https://sunny044.app.n8n.cloud/webhook/multi"
 )
 
 AVAILABLE_MODELS = [
