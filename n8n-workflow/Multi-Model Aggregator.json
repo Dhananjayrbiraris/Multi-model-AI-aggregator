@@ -749,7 +749,7 @@
           "inputType": "image",
           "prompt": ""
         },
-        "webhookUrl": "https://sunny046.app.n8n.cloud/webhook/multi",
+        "webhookUrl": "https://sunny047.app.n8n.cloud/webhook/multi",
         "executionMode": "production"
       }
     ]
